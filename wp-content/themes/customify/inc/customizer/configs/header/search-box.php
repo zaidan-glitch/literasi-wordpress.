@@ -1,0 +1,566 @@
+<?php
+
+class Customify_Builder_Item_Search_Box {
+	public $id = 'search_box';
+	public $section = 'search_box';
+	public $name = 'search_box';
+	public $label = '';
+
+	/**
+	 * Optional construct
+	 *
+	 * Customify_Builder_Item_HTML constructor.
+	 */
+	function __construct() {
+		$this->label = __( 'Search Box', 'customify' );
+	}
+
+	/**
+	 * Register Builder item
+	 *
+	 * @return array
+	 */
+	function item() {
+		return array(
+			'name'    => $this->label,
+			'id'      => $this->id,
+			'col'     => 0,
+			'width'   => '1',
+			'section' => $this->section, // Customizer section to focus when click settings.
+		);
+	}
+
+	/**
+	 * Optional, Register customize section and panel.
+	 *
+	 * @return array
+	 */
+	function customize() {
+		// Render callback function.
+		$fn       = array( $this, 'render' );
+		$selector = ".header-{$this->id}-item";
+
+		$icon_postion_css = "$selector .search-submit{margin-left: {{value}};} $selector .woo_bootster_search .search-submit{margin-left: {{value}};} $selector .header-search-form button.search-submit{margin-left:{{value}};}";
+		if ( is_rtl() ) {
+			$icon_postion_css = ".rtl $selector .search-submit{margin-right: {{value}}; margin-left:auto;} .rtl $selector .woo_bootster_search .search-submit{margin-left: {{value}};margin-left:auto;} .rtl $selector .header-search-form button.search-submit{margin-left: {{value}};margin-left:auto;}";
+		}
+
+		$config   = array(
+			array(
+				'name'            => $this->section,
+				'type'            => 'section',
+				'panel'           => 'header_settings',
+				'title'           => $this->label,
+			),
+
+			array(
+				'name'            => $this->section . '_placeholder',
+				'type'            => 'text',
+				'section'         => $this->section,
+				'selector'        => "$selector",
+				'render_callback' => $fn,
+				'label'           => __( 'Placeholder', 'customify' ),
+				'description'     => __( 'Separate several phrases with | to rotate them, e.g. Search sofas|Search rugs|Search chairs. Leading words shared by every phrase stay in place and the rest rotates.', 'customify' ),
+				'default'         => __( 'Search ...', 'customify' ),
+				'priority'        => 10,
+			),
+
+			array(
+				'name'            => $this->section . '_search_scope',
+				'type'            => 'select',
+				'section'         => $this->section,
+				'selector'        => "$selector",
+				'render_callback' => $fn,
+				'title'           => __( 'Search scope', 'customify' ),
+				'description'     => __( 'Limit this search form to a single content type.', 'customify' ),
+				'default'         => '',
+				// Built at Customizer registration time, well after `init`, so
+				// every custom post type is already registered.
+				'choices'         => function_exists( 'customify_search_get_scope_choices' ) ? customify_search_get_scope_choices() : array( '' => __( 'Everything', 'customify' ) ),
+				'priority'        => 12,
+			),
+
+			// Category dropdown - opt-in, see inc/search/functions-search-box.php.
+			array(
+				'name'     => $this->section . '_cat_heading',
+				'type'     => 'heading',
+				'section'  => $this->section,
+				'title'    => __( 'Category Dropdown', 'customify' ),
+				'priority' => 13,
+			),
+
+			array(
+				'name'           => $this->section . '_cat_filter',
+				'type'           => 'checkbox',
+				'section'        => $this->section,
+				'default'        => '',
+				'checkbox_label' => __( 'Show a category dropdown in the search form', 'customify' ),
+				'priority'       => 13,
+			),
+
+			array(
+				'name'            => $this->section . '_cat_taxonomy',
+				'type'            => 'select',
+				'section'         => $this->section,
+				'selector'        => "$selector",
+				'render_callback' => $fn,
+				'title'           => __( 'Taxonomy', 'customify' ),
+				'default'         => function_exists( 'customify_search_box_get_default_cat_taxonomy' ) ? customify_search_box_get_default_cat_taxonomy() : 'category',
+				'choices'         => function_exists( 'customify_search_box_get_cat_taxonomy_choices' ) ? customify_search_box_get_cat_taxonomy_choices() : array(),
+				'required'        => array( $this->section . '_cat_filter', '==', '1' ),
+				'priority'        => 13,
+			),
+
+			array(
+				'name'            => $this->section . '_cat_source',
+				'type'            => 'select',
+				'section'         => $this->section,
+				'selector'        => "$selector",
+				'render_callback' => $fn,
+				'title'           => __( 'Terms to list', 'customify' ),
+				'default'         => 'selected',
+				'choices'         => array(
+					'selected' => __( 'Selected terms', 'customify' ),
+					'top'      => __( 'All top-level terms', 'customify' ),
+					'all'      => __( 'All terms, nested', 'customify' ),
+				),
+				'required'        => array( $this->section . '_cat_filter', '==', '1' ),
+				'priority'        => 13,
+			),
+
+			array(
+				'name'              => $this->section . '_cat_terms',
+				'type'              => 'term_picker',
+				'section'           => $this->section,
+				'selector'          => "$selector",
+				'render_callback'   => $fn,
+				'title'             => __( 'Selected terms', 'customify' ),
+				'description'       => __( 'Search and pick the terms to list, in order. Leave empty to list the top-level terms.', 'customify' ),
+				'default'           => array(),
+				'sanitize_callback' => 'customify_term_picker_sanitize_setting',
+				'taxonomy_setting'  => $this->section . '_cat_taxonomy',
+				'required'          => array(
+					array( $this->section . '_cat_filter', '==', '1' ),
+					array( $this->section . '_cat_source', '==', 'selected' ),
+				),
+				'priority'          => 13,
+			),
+
+			array(
+				'name'            => $this->section . '_cat_hide_empty',
+				'type'            => 'checkbox',
+				'section'         => $this->section,
+				'selector'        => "$selector",
+				'render_callback' => $fn,
+				'default'         => 1,
+				'checkbox_label'  => __( 'Hide empty terms', 'customify' ),
+				'required'        => array( $this->section . '_cat_filter', '==', '1' ),
+				'priority'        => 13,
+			),
+
+			array(
+				'name'            => $this->section . '_cat_all_text',
+				'type'            => 'text',
+				'section'         => $this->section,
+				'selector'        => "$selector",
+				'render_callback' => $fn,
+				'label'           => __( '"All" option text', 'customify' ),
+				'default'         => __( 'All categories', 'customify' ),
+				'required'        => array( $this->section . '_cat_filter', '==', '1' ),
+				'priority'        => 13,
+			),
+
+			array(
+				'name'            => $this->section . '_cat_hide_mobile',
+				'type'            => 'checkbox',
+				'section'         => $this->section,
+				'selector'        => "$selector",
+				'render_callback' => $fn,
+				'default'         => 1,
+				'checkbox_label'  => __( 'Hide the dropdown on tablet and mobile', 'customify' ),
+				'required'        => array( $this->section . '_cat_filter', '==', '1' ),
+				'priority'        => 13,
+			),
+
+			// Dropdown look. The select inherits the field's colour and font,
+			// so these stay empty (no CSS) unless the site owner sets them.
+			array(
+				'name'            => $this->section . '_cat_divider',
+				'type'            => 'checkbox',
+				'section'         => $this->section,
+				'selector'        => "$selector",
+				'render_callback' => $fn,
+				'default'         => 1,
+				'checkbox_label'  => __( 'Show a divider between the dropdown and the input', 'customify' ),
+				'required'        => array( $this->section . '_cat_filter', '==', '1' ),
+				'priority'        => 13,
+			),
+
+			array(
+				'name'       => $this->section . '_cat_divider_color',
+				'type'       => 'color',
+				'section'    => $this->section,
+				'selector'   => "{$selector} .cfy-search-box .cfy-search-box__cat::after",
+				'css_format' => 'background-color: {{value}};',
+				'title'      => __( 'Divider Color', 'customify' ),
+				'required'   => array(
+					array( $this->section . '_cat_filter', '==', '1' ),
+					array( $this->section . '_cat_divider', '==', '1' ),
+				),
+				'priority'   => 13,
+			),
+
+			array(
+				'name'       => $this->section . '_cat_color',
+				'type'       => 'color',
+				'section'    => $this->section,
+				'selector'   => "{$selector} .cfy-search-box .cfy-search-box__cat",
+				'css_format' => 'color: {{value}};',
+				'title'      => __( 'Dropdown Text Color', 'customify' ),
+				'required'   => array( $this->section . '_cat_filter', '==', '1' ),
+				'priority'   => 13,
+			),
+
+			array(
+				'name'       => $this->section . '_cat_typography',
+				'type'       => 'typography',
+				'section'    => $this->section,
+				'selector'   => "{$selector} .cfy-search-box .cfy-search-box__cat-select",
+				'css_format' => 'typography',
+				'label'      => __( 'Dropdown Typography', 'customify' ),
+				'required'   => array( $this->section . '_cat_filter', '==', '1' ),
+				'priority'   => 13,
+			),
+
+			array(
+				'name'            => $this->section . '_width',
+				'type'            => 'slider',
+				'device_settings' => true,
+				'section'         => $this->section,
+				'selector'        => "$selector .search-form-fields",
+				'css_format'      => 'width: {{value}};',
+				'label'           => __( 'Search Form Width', 'customify' ),
+				'description'     => __( 'Note: The width can not greater than grid width.', 'customify' ),
+				'priority'        => 15,
+			),
+
+			array(
+				'name'            => $this->section . '_height',
+				'type'            => 'slider',
+				'device_settings' => true,
+				'section'         => $this->section,
+				'min'             => 25,
+				'step'            => 1,
+				'max'             => 100,
+				'selector'        => "$selector .search-form-fields, $selector .search-form-fields .search-field",
+				'css_format'      => 'height: {{value}};',
+				'label'           => __( 'Input Height', 'customify' ),
+				'priority'        => 20,
+			),
+
+			array(
+				'name'            => $this->section . '_icon',
+				'type'            => 'icon',
+				'section'         => $this->section,
+				'selector'        => "$selector",
+				'render_callback' => $fn,
+				'label'           => __( 'Search Icon', 'customify' ),
+				'description'     => __( 'Leave empty to use the theme default magnifier. Pick a font icon or paste a Custom SVG to override.', 'customify' ),
+				'default'         => array(
+					'type' => '',
+					'icon' => '',
+					'svg'  => '',
+				),
+				'priority'        => 22,
+			),
+
+			array(
+				'name'            => $this->section . '_icon_size',
+				'type'            => 'slider',
+				'device_settings' => true,
+				'section'         => $this->section,
+				'min'             => 5,
+				'step'            => 1,
+				'max'             => 100,
+				'selector'        => "$selector .search-submit svg,$selector .header-search-form button.search-submit svg",
+				'css_format'      => 'height: {{value}}; width: {{value}};',
+				'label'           => __( 'Icon Size', 'customify' ),
+				'priority'        => 25,
+			),
+
+			array(
+				'name'            => $this->section . '_icon_pos',
+				'type'            => 'slider',
+				'device_settings' => true,
+				'default'         => array(
+					'desktop' => array(
+						'value' => - 40,
+						'unit'  => 'px',
+					),
+					'tablet'  => array(
+						'value' => - 40,
+						'unit'  => 'px',
+					),
+					'mobile'  => array(
+						'value' => - 40,
+						'unit'  => 'px',
+					),
+				),
+				'section'         => $this->section,
+				'min'             => - 150,
+				'step'            => 1,
+				'max'             => 90,
+				'selector'        => 'format',
+				'css_format'      => $icon_postion_css,
+				'label'           => __( 'Icon Position', 'customify' ),
+				'priority'        => 30,
+			),
+
+			array(
+				'name'        => $this->section . '_font_size',
+				'type'        => 'typography',
+				'section'     => $this->section,
+				'selector'    => "$selector .search-form-fields",
+				'css_format'  => 'typography',
+				'label'       => __( 'Input Text Typography', 'customify' ),
+				'description' => __( 'Typography for search input', 'customify' ),
+				'priority'        => 35,
+			),
+
+			array(
+				'name'        => $this->section . '_input_styling',
+				'type'        => 'styling',
+				'section'     => $this->section,
+				'css_format'  => 'styling',
+				'title'       => __( 'Input Styling', 'customify' ),
+				'description' => __( 'Search input styling', 'customify' ),
+				'selector'    => array(
+					'normal'            => "{$selector} .search-form-fields",
+					'hover'             => "{$selector} .search-form-fields:hover",
+					'normal_text_color' => "{$selector} .search-form-fields,
+											{$selector} .search-form-fields .search-field,
+											{$selector} .search-form-fields input.search-field::placeholder,
+											.dark-mode {$selector} .search-form-fields .search-field,
+											.dark-mode {$selector} .search-form-fields .search-field::placeholder,
+											.woo_bootster_search .dark-mode {$selector} .header-search-form .search-form-fields input.search-field,
+											.woo_bootster_search .dark-mode {$selector} .header-search-form .search-form-fields input.search-field::placeholder,
+											.woo_bootster_search .dark-mode {$selector} .header-search-form .search-form-fields .search_product_cats
+											",
+					'normal_bg_color' => ".dark-mode {$selector} .search-form-fields, {$selector} .search-form-fields",
+					'normal_border_style' => ".dark-mode {$selector} .search-form-fields, {$selector} .search-form-fields",
+					'normal_border_width' => ".dark-mode {$selector} .search-form-fields, {$selector} .search-form-fields",
+					'normal_border_color' => ".dark-mode {$selector} .search-form-fields, {$selector} .search-form-fields",
+					'normal_border_radius' => ".dark-mode {$selector} .search-form-fields, {$selector} .search-form-fields",
+					'normal_box_shadow' => ".dark-mode {$selector} .search-form-fields, {$selector} .search-form-fields",
+				),
+				'default'     => array(
+					'normal' => array(
+						'border_style' => 'solid',
+					),
+				),
+				'fields'      => array(
+					'normal_fields' => array(
+						'link_color'    => false, // disable for special field.
+						'bg_cover'      => false,
+						'bg_image'      => false,
+						'bg_repeat'     => false,
+						'bg_attachment' => false,
+						'margin'        => false,
+					),
+					'hover_fields'  => array(
+						'link_color'    => false,
+						'padding'       => false,
+						'bg_cover'      => false,
+						'bg_image'      => false,
+						'bg_repeat'     => false,
+						'border_radius' => false,
+					), // disable hover tab and all fields inside.
+				),
+				'priority'        => 40,
+			),
+
+			// Focus state of the box that draws the Input Styling chrome.
+			// That box differs by setup: `.search-form-fields` on its own, the
+			// form itself once Customify Pro's WooCommerce Booster is active
+			// (it adds `body.woo_bootster_search` and moves the border, radius,
+			// shadow and background onto the form - see the Booster rules in
+			// _search.scss). Each selector matches only its own case, so the
+			// focus look lands on the same box the resting look is drawn on.
+			// Empty by default: the theme's built-in focus border stays as is.
+			array(
+				'name'        => $this->section . '_input_focus_styling',
+				'type'        => 'styling',
+				'section'     => $this->section,
+				'css_format'  => 'styling',
+				'title'       => __( 'Input Focus Styling', 'customify' ),
+				'description' => __( 'Applied while the search input or the category dropdown has focus.', 'customify' ),
+				'selector'    => array(
+					'normal' => "body:not(.woo_bootster_search) {$selector} .search-form-fields:focus-within, .woo_bootster_search {$selector} .header-search-form:focus-within",
+				),
+				'fields'      => array(
+					'normal_fields' => array(
+						'text_color'    => false,
+						'link_color'    => false,
+						'margin'        => false,
+						'padding'       => false,
+						'bg_image'      => false,
+						'bg_cover'      => false,
+						'bg_position'   => false,
+						'bg_repeat'     => false,
+						'bg_attachment' => false,
+						'border_radius' => false,
+					),
+					'hover_fields'  => false,
+				),
+				'priority'    => 41,
+			),
+
+			array(
+				'name'        => $this->section . '_icon_styling',
+				'type'        => 'styling',
+				'section'     => $this->section,
+				'css_format'  => 'styling',
+				'title'       => __( 'Icon Styling', 'customify' ),
+				'description' => __( 'Search input styling', 'customify' ),
+				// Three fixes packed into these selectors — all of them prevent
+				// Icon Styling values from taking effect on the search submit
+				// button:
+				//
+				// 1) `body` prefix lifts specificity from (0,3,1) to (0,3,2),
+				//    tying with the generic primary-button rule in
+				//    base/_base.scss (`body:not(.fl-builder-edit) :is(...)`).
+				//    At equal specificity, cascade order decides; Customify
+				//    inline styles are emitted after the base stylesheet, so
+				//    Icon Styling wins (background-color, border, etc.).
+				//
+				// 2) `hover` selector must include `:hover`. Previously it
+				//    duplicated the `normal` selector, so any hover values
+				//    were re-emitted at equal specificity later in the same
+				//    inline <style> block and overrode the normal state on
+				//    every render.
+				//
+				// 3) `normal_text_color` must target BOTH light and dark mode.
+				//    The previous version listed only `.dark-mode`, which
+				//    meant changing the Icon Styling text color did nothing
+				//    on light-mode sites — the base `color: $color_meta` from
+				//    _search.scss kept winning.
+				'selector'    => array(
+					'normal' => "{$selector} .header-search-form button.search-submit",
+					'hover'  => "{$selector} .header-search-form button.search-submit:hover",
+					'normal_text_color' => "{$selector} .header-search-form button.search-submit, .dark-mode {$selector} .header-search-form button.search-submit",
+				),
+				'fields'      => array(
+					'normal_fields' => array(
+						'link_color'    => false, // disable for special field.
+						'bg_cover'      => false,
+						'bg_image'      => false,
+						'bg_repeat'     => false,
+						'bg_attachment' => false,
+						'margin'        => false,
+					),
+					'hover_fields'  => array(
+						'link_color'    => false,
+						'padding'       => false,
+						'bg_cover'      => false,
+						'bg_image'      => false,
+						'bg_repeat'     => false,
+						'bg_attachment' => false,
+						'border_radius' => false,
+					), // disable hover tab and all fields inside.
+				),
+				'priority'        => 45,
+			),
+
+		);
+
+		// Item Layout.
+		return array_merge( $config, customify_header_layout_settings( $this->id, $this->section ) );
+	}
+
+	/**
+	 * Optional. Render item content
+	 */
+	function render() {
+		$form_extra_class = apply_filters( 'customify/builder_item/search-box/form_extra_class', array() );
+		// Opt-in category dropdown classes; a no-op by default.
+		if ( function_exists( 'customify_search_box_form_classes' ) ) {
+			$form_extra_class = customify_search_box_form_classes( $form_extra_class, $this->id );
+		}
+		$placeholder = Customify()->get_setting( $this->section . '_placeholder' );
+		$placeholder = sanitize_text_field( $placeholder );
+
+		// `|` in the placeholder: rotating phrases (first one is the real
+		// placeholder). Without `|` this hands the value back untouched.
+		$placeholder_parsed = function_exists( 'customify_search_box_parse_placeholder' ) ? customify_search_box_parse_placeholder( $placeholder ) : array( 'placeholder' => $placeholder );
+		$placeholder        = $placeholder_parsed['placeholder'];
+
+		// User-picked submit icon. Empty falls back to the shipped
+		// magnifier; opt-in only, so existing sites don't change bytes.
+		$icon      = Customify()->get_setting( $this->section . '_icon' );
+		$icon_html = function_exists( 'customify_render_icon' ) ? customify_render_icon( $icon ) : '';
+
+		$default_icon = '<svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" width="20" height="21" viewBox="0 0 20 21"><path fill="currentColor" fill-rule="evenodd" d="M12.514 14.906a8.264 8.264 0 0 1-4.322 1.21C3.668 16.116 0 12.513 0 8.07 0 3.626 3.668.023 8.192.023c4.525 0 8.193 3.603 8.193 8.047 0 2.033-.769 3.89-2.035 5.307l4.999 5.552-1.775 1.597-5.06-5.62zm-4.322-.843c3.37 0 6.102-2.684 6.102-5.993 0-3.31-2.732-5.994-6.102-5.994S2.09 4.76 2.09 8.07c0 3.31 2.732 5.993 6.102 5.993z"></path></svg>';
+		/**
+		 * Hook: customify/builder_item/search-box/before_html
+		 *
+		 * @since 0.2.8
+		 */
+		do_action( 'customify/builder_item/search-box/before_html' );
+
+		echo '<div class="header-' . esc_attr( $this->id ) . '-item item--' . esc_attr( $this->id ) . '">';
+		?>
+		<form class="header-search-form <?php echo esc_attr( implode( ' ', $form_extra_class ) ); ?>" action="<?php echo esc_url( home_url( '/' ) ); ?>">
+			<div class="search-form-fields">
+				<span class="screen-reader-text"><?php echo _x( 'Search for:', 'label', 'customify' ); ?></span>
+				<?php
+				/**
+				 * Hook: customify/builder_item/search-box/html_content/before_input
+				 *
+				 * @since 0.2.8
+				 */
+				do_action( 'customify/builder_item/search-box/html_content/before_input' );
+
+				// Scope the form to a single content type when configured.
+				if ( function_exists( 'customify_search_scope_hidden_input' ) ) {
+					customify_search_scope_hidden_input( $this->id );
+				}
+
+				// Opt-in category dropdown; prints nothing while it is off.
+				if ( function_exists( 'customify_search_box_cat_dropdown' ) ) {
+					customify_search_box_cat_dropdown( $this->id );
+				}
+				?>
+
+				<input type="search" class="search-field" placeholder="<?php echo esc_attr( $placeholder ); ?>" value="<?php echo get_search_query(); ?>" name="s" title="<?php echo esc_attr_x( 'Search for:', 'label', 'customify' ); ?>" />
+
+				<?php
+				// Rotating placeholder overlay; prints nothing without `|`.
+				if ( function_exists( 'customify_search_box_rotating_placeholder' ) ) {
+					customify_search_box_rotating_placeholder( $placeholder_parsed );
+				}
+
+				/**
+				 * Hook: customify/builder_item/search-box/html_content/after_input
+				 *
+				 * @since 0.2.8
+				 */
+				do_action( 'customify/builder_item/search-box/html_content/after_input' );
+				?>
+			</div>
+			<button type="submit" class="search-submit" aria-label="<?php esc_attr_e( 'Submit Search', 'customify' ) ?>">
+				<?php echo '' !== $icon_html ? $icon_html : $default_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_icon is kses-sanitised; default is a literal SVG constant. ?>
+			</button>
+		</form>
+		<?php
+		echo '</div>';
+
+		/**
+		 * Hook: customify/builder_item/search-box/after_html
+		 *
+		 * @since 0.2.8
+		 */
+		do_action( 'customify/builder_item/search-box/after_html' );
+	}
+}
+
+Customify_Customize_Layout_Builder()->register_item( 'header', new Customify_Builder_Item_Search_Box() );

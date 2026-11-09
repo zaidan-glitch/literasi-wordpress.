@@ -1,0 +1,286 @@
+<?php
+/**
+ * Functions which enhance the theme by hooking into WordPerss and itself (huh?).
+ *
+ * @package customify
+ */
+
+if ( ! function_exists( 'customify_body_classes' ) ) {
+	/**
+	 * Adds custom classes to the array of body classes.
+	 *
+	 * @since 0.0.1
+	 * @since 0.2.6
+	 *
+	 * @param array $classes Classes for the body element.
+	 *
+	 * @return array
+	 */
+	function customify_body_classes( $classes ) {
+
+		// Adds a class of hfeed to non-singular pages.
+		if ( ! is_singular() ) {
+			$classes[] = 'hfeed';
+		}
+
+		$layout = customify_get_layout();
+		if ( '' != $layout ) {
+			$classes[] = $layout;
+			/**
+			 * Add more layout classs
+			 *
+			 * @since 0.2.6
+			 */
+			$classes[] = 'main-layout-' . $layout;
+		}
+
+		$sidebar_vertical_border = Customify()->get_setting( 'sidebar_vertical_border' );
+		if ( 'sidebar_vertical_border' == $sidebar_vertical_border ) {
+			$classes[] = 'sidebar_vertical_border';
+		}
+
+		if ( is_customize_preview() ) {
+			$classes[] = 'customize-previewing';
+		}
+
+		// Site layout mode.
+		$site_layout = sanitize_text_field( Customify()->get_setting( 'site_layout' ) );
+		if ( $site_layout ) {
+			$classes[] = $site_layout;
+		}
+
+		$animate = Customify()->get_setting( 'header_sidebar_animate' );
+		if ( ! $animate ) {
+			$animate = 'menu_sidebar_slide_left';
+		}
+		$classes[] = $animate;
+
+		// Mirror Customify_Page_Header::render() gating so the body class is in
+		// sync with whether <div id="page-cover"> will actually be output.
+		if ( class_exists( 'Customify_Page_Header' ) && did_action( 'wp' ) ) {
+			if ( 'cover' === Customify_Page_Header::get_instance()->will_render() ) {
+				$classes[] = 'has-page-cover';
+			}
+		}
+
+		// Context settings default to inherit, so sites that have not opted in
+		// receive no new body class. The resolver also preserves the existing
+		// singular per-post disable flag as the highest-priority override.
+		foreach ( customify_get_content_area_spacing_body_classes() as $spacing_class ) {
+			if ( ! in_array( $spacing_class, $classes, true ) ) {
+				$classes[] = $spacing_class;
+			}
+		}
+
+		// Opts a site into the unified header icon+label style (one size, one
+		// weight, sentence case, one icon/label gap across Cart, Search and
+		// Pro's User item). It changes how an existing header LOOKS, so it is
+		// gated on the install marker exactly like the cart's icon default:
+		// sites that started on 0.4.25+ get it, everything older keeps the
+		// uppercase, per-item styling it has always rendered.
+		// See docs/SPEC-icons.md §9.2 for the style table Pro mirrors.
+		if ( function_exists( 'customify_is_fresh_install_since' )
+			&& customify_is_fresh_install_since( '0.4.25' ) ) {
+			$classes[] = 'customify-header-items-v2';
+		}
+
+		return $classes;
+	}
+}
+add_filter( 'body_class', 'customify_body_classes' );
+
+
+if ( ! function_exists( 'customify_site_classes' ) ) {
+	function customify_site_classes() {
+		$classes    = array();
+		$classes[]  = 'site';
+		$box_shadow = Customify()->get_setting( 'site_box_shadow' );
+		if ( $box_shadow ) {
+			$classes[] = esc_attr( $box_shadow );
+		}
+
+		$classes = apply_filters( 'customify_site_classes', $classes );
+
+		echo 'class="' . join( ' ', $classes ) . '"';
+	}
+}
+
+if ( ! function_exists( 'customify_site_content_classes' ) ) {
+	/**
+	 * Adds custom classes to the array of site content classes.
+	 *
+	 * Mirrors the header builder pattern: the Customizer field
+	 * `site_content_layout` (radio: `site-content-fullwidth` / `site-content-boxed`)
+	 * uses `css_format = 'html_class'`, which is a no-op marker in the
+	 * auto-CSS pipeline. The class has to be pushed into the element's
+	 * class array manually here — same wiring as `site_layout` above and
+	 * the header `header_main_layout` field.
+	 *
+	 * Was orphaned since the setting first shipped in 2017 (b04c6a44):
+	 * UI saved the value but no handler ever applied the class. The
+	 * paired SCSS rule (`.site-content-fullwidth .customify-container
+	 * { max-width: initial }`) lives in `src/frontend/scss/layouts/_layouts.scss`,
+	 * mirroring the existing `.layout-fullwidth` pattern in the header SCSS.
+	 *
+	 * @param array $classes Classes for the site content element.
+	 *
+	 * @return array
+	 */
+	function customify_site_content_classes( $classes ) {
+		$classes[] = 'site-content';
+
+		$site_content_layout = sanitize_text_field( Customify()->get_setting( 'site_content_layout' ) );
+		if ( $site_content_layout ) {
+			$classes[] = $site_content_layout;
+		}
+
+		return $classes;
+	}
+}
+
+add_filter( 'customify_site_content_class', 'customify_site_content_classes' );
+
+
+if ( ! function_exists( 'customify_sidebar_primary_classes' ) ) {
+	/**
+	 * Adds custom classes to the array of primary sidebar classes.
+	 *
+	 * @param array $classes Classes for the primary sidebar element.
+	 *
+	 * @return array
+	 */
+	function customify_sidebar_primary_classes( $classes ) {
+
+		$classes[] = 'sidebar-primary';
+		$layout    = customify_get_layout();
+
+		if ( 'sidebar-sidebar-content' == $layout ) {
+			$classes[] = 'customify-col-3_sm-12';
+		}
+
+		if ( 'sidebar-content-sidebar' == $layout ) {
+			$classes[] = 'customify-col-3_sm-12';
+		}
+
+		if ( 'content-sidebar-sidebar' == $layout ) {
+			$classes[] = 'customify-col-3_sm-12';
+		}
+
+		if ( 'sidebar-content' == $layout ) {
+			$classes[] = 'customify-col-3_sm-12';
+		}
+
+		if ( 'content-sidebar' == $layout ) {
+			$classes[] = 'customify-col-3_sm-12';
+		}
+
+		return $classes;
+	}
+}
+add_filter( 'customify_sidebar_primary_class', 'customify_sidebar_primary_classes' );
+
+if ( ! function_exists( 'customify_sidebar_secondary_classes' ) ) {
+	/**
+	 * Adds custom classes to the array of secondary sidebar classes.
+	 *
+	 * @param array $classes Classes for the secondary sidebar element.
+	 *
+	 * @return array
+	 */
+	function customify_sidebar_secondary_classes( $classes ) {
+
+		$classes[] = 'sidebar-secondary';
+		$layout    = customify_get_layout();
+
+		if ( 'sidebar-sidebar-content' == $layout ) {
+			$classes[] = 'customify-col-3_md-0_sm-12';
+		}
+
+		if ( 'sidebar-content-sidebar' == $layout ) {
+			$classes[] = 'customify-col-3_md-0_sm-12-first'; // Not move to bottom on mobile, ueh?
+		}
+
+		if ( 'content-sidebar-sidebar' == $layout ) {
+			$classes[] = 'customify-col-3_md-0_sm-12';
+		}
+
+		return $classes;
+	}
+}
+add_filter( 'customify_sidebar_secondary_class', 'customify_sidebar_secondary_classes' );
+
+if ( ! function_exists( 'customify_main_content_classes' ) ) {
+	/**
+	 * Adds custom classes to the array of main content classes.
+	 *
+	 * @param array $classes Classes for the main content element.
+	 *
+	 * @return array
+	 */
+	function customify_main_content_classes( $classes ) {
+
+		$classes[] = 'content-area';
+		$layout    = customify_get_layout();
+
+		if ( 'sidebar-sidebar-content' == $layout ) {
+			$classes[] = 'customify-col-6_md-9_sm-12-last_sm-first';
+		}
+
+		if ( 'sidebar-content-sidebar' == $layout ) {
+			$classes[] = 'customify-col-6_md-9_sm-12';
+		}
+
+		if ( 'content-sidebar-sidebar' == $layout ) {
+			$classes[] = 'customify-col-6_md-9_sm-12-first';
+		}
+
+		if ( 'sidebar-content' == $layout ) {
+			$classes[] = 'customify-col-9_sm-12-last_sm-first';
+		}
+
+		if ( 'content-sidebar' == $layout ) {
+			$classes[] = 'customify-col-9_sm-12';
+		}
+
+		if ( 'content' == $layout ) {
+			$classes[] = 'customify-col-12';
+		}
+
+		return $classes;
+	}
+}
+add_filter( 'customify_main_content_class', 'customify_main_content_classes' );
+
+if ( ! function_exists( 'customify_site_content_grid_classes' ) ) {
+	/**
+	 * Adds custom classes to the array of site content grid classes.
+	 *
+	 * @param array $classes Classes for the main content element.
+	 *
+	 * @return array
+	 */
+	function customify_site_content_grid_classes( $classes ) {
+
+		$classes[] = 'customify-grid';
+
+		return $classes;
+	}
+}
+add_filter( 'customify_site_content_grid_class', 'customify_site_content_grid_classes' );
+
+if ( ! function_exists( 'customify_site_content_container_classes' ) ) {
+	/**
+	 * Adds custom classes to the array of site content container classes.
+	 *
+	 * @param array $classes Classes for the main content element.
+	 *
+	 * @return array
+	 */
+	function customify_site_content_container_classes( $classes ) {
+
+		$classes[] = 'customify-container';
+
+		return $classes;
+	}
+}
+add_filter( 'customify_site_content_container_class', 'customify_site_content_container_classes' );
